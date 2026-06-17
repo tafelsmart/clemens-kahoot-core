@@ -12,9 +12,12 @@ from telegram.ext import (
 from playwright.async_api import async_playwright
 
 # ═══════════════════════════════════════════════════════════════════
-# KONFIGURATION
+# CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════
-TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN", "8788212868:AAEGRYe-h1ClYPtqOJ91P5O0hIWRM8Yo-SI")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+if not TELEGRAM_TOKEN:
+    raise ValueError("TELEGRAM_TOKEN is missing! Please provide it in your setup/environment.")
+
 AUTH_PIN         = os.environ.get("AUTH_PIN", "2602")
 LOCKOUT_DURATION = 1800
 MAX_PIN_ATTEMPTS = 3
@@ -23,29 +26,29 @@ LOCALES = [
     {"locale": "de-DE", "timezone": "Europe/Berlin",
      "geo": {"latitude": 52.5200, "longitude": 13.4050}, "label": "Berlin"},
     {"locale": "de-DE", "timezone": "Europe/Berlin",
-     "geo": {"latitude": 48.1351, "longitude": 11.5820}, "label": "Muenchen"},
+     "geo": {"latitude": 48.1351, "longitude": 11.5820}, "label": "Munich"},
     {"locale": "de-DE", "timezone": "Europe/Berlin",
      "geo": {"latitude": 53.5511, "longitude": 9.9937},  "label": "Hamburg"},
     {"locale": "de-DE", "timezone": "Europe/Berlin",
-     "geo": {"latitude": 50.9333, "longitude": 6.9500},  "label": "Koeln"},
+     "geo": {"latitude": 50.9333, "longitude": 6.9500},  "label": "Cologne"},
     {"locale": "de-DE", "timezone": "Europe/Berlin",
      "geo": {"latitude": 50.1109, "longitude": 8.6821},  "label": "Frankfurt"},
     {"locale": "de-AT", "timezone": "Europe/Vienna",
-     "geo": {"latitude": 48.2082, "longitude": 16.3738}, "label": "Wien"},
+     "geo": {"latitude": 48.2082, "longitude": 16.3738}, "label": "Vienna"},
     {"locale": "de-CH", "timezone": "Europe/Zurich",
-     "geo": {"latitude": 47.3769, "longitude": 8.5417},  "label": "Zuerich"},
+     "geo": {"latitude": 47.3769, "longitude": 8.5417},  "label": "Zurich"},
     {"locale": "de-DE", "timezone": "Europe/Berlin",
      "geo": {"latitude": 51.3397, "longitude": 12.3731}, "label": "Leipzig"},
     {"locale": "de-DE", "timezone": "Europe/Berlin",
      "geo": {"latitude": 51.4556, "longitude": 7.0116},  "label": "Dortmund"},
     {"locale": "de-DE", "timezone": "Europe/Berlin",
-     "geo": {"latitude": 49.4521, "longitude": 11.0767}, "label": "Nuernberg"},
+     "geo": {"latitude": 49.4521, "longitude": 11.0767}, "label": "Nuremberg"},
 ]
 
 RANDOM_NAME_POOL = [
-    "Krone","Zepter","Thron","Garde","Ritter","Baron","Furst","Prinz",
-    "Graf","Titan","Pharao","Vulkan","Kaiser","Vogt","Strateg","Paladin",
-    "Zentur","General","Monarch","Overlrd","Gladiat","Clem","ClemX",
+    "Crown","Scepter","Throne","Guard","Knight","Baron","Lord","Prince",
+    "Count","Titan","Pharaoh","Volcano","Emperor","Reeve","Strategist","Paladin",
+    "Centurion","General","Monarch","Overlord","Gladiator","Clem","ClemX",
     "ClemZ","ClemK","ClemR","ClemV","ClemT","ClemA","ClemS","ClemG",
     "Joh","JohX","JohZ","JohK","JohR","JohV","JohT","JohA",
     "Santi","SantiX","SantiZ","SantiK","Henri","HenriX","HenriZ",
@@ -103,7 +106,7 @@ DEFAULT_CONFIG = {
 }
 
 # ═══════════════════════════════════════════════════════════════════
-# HILFSFUNKTIONEN
+# HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════
 async def get_session():
     global _HTTP_SESSION
@@ -129,9 +132,9 @@ def lockout_msg(remaining):
     mins = int(remaining // 60)
     secs = int(remaining % 60)
     return (
-        "🔒 <b>Zugriff gesperrt</b>\n"
-        f"PIN {MAX_PIN_ATTEMPTS}x falsch.\n"
-        f"Entsperrung in: <code>{mins}m {secs}s</code>"
+        "🔒 <b>Access Locked</b>\n"
+        f"PIN incorrect {MAX_PIN_ATTEMPTS}x.\n"
+        f"Unlocks in: <code>{mins}m {secs}s</code>"
     )
 
 def escape_html(text):
@@ -146,9 +149,8 @@ def carpet_names(text, amount, fallback_pool):
     words = text.split()
     if not words:
         return [random.choice(fallback_pool) + "_" + str(random.randint(10, 99)) for _ in range(amount)]
-    # Umgekehrte Reihenfolge: Bot 1 bekommt letztes Wort, letzter Bot bekommt erstes Wort.
-    # Auf dem Beamer steht es dann in der richtigen Reihenfolge (spaeter Beigetretene
-    # landen weiter oben in der Lobby-Liste).
+    # Reversed order: Bot 1 gets the last word, last Bot gets the first word.
+    # This displays correctly on the lobby screen (late joiners appear higher up).
     reversed_words = list(reversed(words))
     return [reversed_words[i % len(reversed_words)][:15] for i in range(amount)]
 
@@ -160,7 +162,7 @@ def parse_custom_names(raw: str) -> list:
     return [p[:15] for p in parts]
 
 # ═══════════════════════════════════════════════════════════════════
-# DASHBOARD v11 — Mobile-safe: max 2 Buttons pro Zeile
+# DASHBOARD v11 — Mobile-safe: max 2 Buttons per row
 # ═══════════════════════════════════════════════════════════════════
 def build_dashboard(ud):
     c  = get_cfg(ud)
@@ -171,17 +173,16 @@ def build_dashboard(ud):
     uuid_val = (c["uuid"][:18] + "…") if c["uuid"] else "Auto"
 
     if c["carpet_enabled"] and c["carpet_text"]:
-        namen_val = "Teppich: " + c["carpet_text"][:10] + ("…" if len(c["carpet_text"]) > 10 else "")
+        names_val = "Carpet: " + c["carpet_text"][:10] + ("…" if len(c["carpet_text"]) > 10 else "")
     elif c["random_names"]:
-        namen_val = "Zufall"
+        names_val = "Random"
     elif c["custom_names"]:
-        namen_val = " ".join(c["custom_names"][:3]) + ("…" if len(c["custom_names"]) > 3 else "")
+        names_val = " ".join(c["custom_names"][:3]) + ("…" if len(c["custom_names"]) > 3 else "")
     else:
-        namen_val = "Prefix: " + c["prefix"]
+        names_val = "Prefix: " + c["prefix"]
 
-    podium_val = ("Top-" + str(c["podium_slots"])) if c["podium_enabled"] else "Aus"
+    podium_val = ("Top-" + str(c["podium_slots"])) if c["podium_enabled"] else "Off"
 
-    # Jede Zeile bewusst kurz — kein Text wird auf Mobile abgeschnitten
     text = (
         "👑 <b>IMPERIAL CORE  v11</b>\n"
         "─────────────────────\n"
@@ -190,24 +191,23 @@ def build_dashboard(ud):
         "⏱ Delay    <code>" + str(c["delay_min"]) + " – " + str(c["delay_max"]) + " s</code>\n"
         "📦 Batch    <code>" + str(c["batch_size"])    + "</code>\n"
         "🔍 UUID     <code>" + escape_html(uuid_val)   + "</code>\n"
-        "🎭 Namen    <code>" + escape_html(namen_val)  + "</code>\n"
+        "🎭 Names    <code>" + escape_html(names_val)  + "</code>\n"
         "─────────────────────\n"
         "🛡 Anti-Kick   " + (ON if c["antikick"]    else OF) + "\n"
         "⚡ Matrix      " + (ON if c["matrix"]       else OF) + "\n"
-        "🐢 Mitläufer   " + (ON if c["follower"]     else OF) + "\n"
-        "🎭 Chamäleon   " + (ON if c["chameleon"]    else OF) + "\n"
+        "🐢 Follower    " + (ON if c["follower"]     else OF) + "\n"
+        "🎭 Chameleon   " + (ON if c["chameleon"]    else OF) + "\n"
         "🗺 Geo         " + (ON if c["geo_spoof"]    else OF) + "\n"
         "📢 Ticker      " + (ON if c["live_ticker"]  else OF) + "\n"
         "👑 Podium      " + (ON + " " + podium_val if c["podium_enabled"] else OF) + "\n"
         "─────────────────────\n"
-        "<i>Einstellen → 🚀 Starten</i>"
+        "<i>Setup → 🚀 Launch</i>"
     )
 
-    # Keyboard: konsequent 2 Buttons pro Zeile (passt auf jeden Screen)
     kb = [
-        [InlineKeyboardButton("⚙️  BASIS", callback_data="noop")],
+        [InlineKeyboardButton("⚙️  BASE", callback_data="noop")],
         [
-            InlineKeyboardButton("🎯 PIN setzen",   callback_data="edit_pin"),
+            InlineKeyboardButton("🎯 Set PIN",   callback_data="edit_pin"),
             InlineKeyboardButton("🤖 Bots: " + str(c["amount"]), callback_data="edit_amount"),
         ],
         [
@@ -216,21 +216,21 @@ def build_dashboard(ud):
         ],
         [
             InlineKeyboardButton("🔍 UUID",          callback_data="edit_uuid"),
-            InlineKeyboardButton("🗑 UUID löschen",  callback_data="clear_uuid"),
+            InlineKeyboardButton("🗑 Clear UUID",  callback_data="clear_uuid"),
         ],
 
-        [InlineKeyboardButton("🎭  NAMEN", callback_data="noop")],
+        [InlineKeyboardButton("🎭  NAMES", callback_data="noop")],
         [
-            InlineKeyboardButton("🎲 Zufall " + (ON if c["random_names"] else OF), callback_data="toggle_random_names"),
+            InlineKeyboardButton("🎲 Random " + (ON if c["random_names"] else OF), callback_data="toggle_random_names"),
             InlineKeyboardButton("🏷 Prefix: " + c["prefix"][:6], callback_data="edit_prefix"),
         ],
         [
-            InlineKeyboardButton("👥 Eigene Namen",  callback_data="edit_custom_names"),
-            InlineKeyboardButton("🗑 Namen löschen", callback_data="clear_custom_names"),
+            InlineKeyboardButton("👥 Custom Names",  callback_data="edit_custom_names"),
+            InlineKeyboardButton("🗑 Clear Names", callback_data="clear_custom_names"),
         ],
         [
-            InlineKeyboardButton("🧹 Teppich " + (ON if c["carpet_enabled"] else OF), callback_data="toggle_carpet"),
-            InlineKeyboardButton("✏️ Teppich-Text",  callback_data="edit_carpet"),
+            InlineKeyboardButton("🧹 Carpet " + (ON if c["carpet_enabled"] else OF), callback_data="toggle_carpet"),
+            InlineKeyboardButton("✏️ Carpet Text",  callback_data="edit_carpet"),
         ],
 
         [InlineKeyboardButton("🔧  FEATURES", callback_data="noop")],
@@ -239,8 +239,8 @@ def build_dashboard(ud):
             InlineKeyboardButton("⚡ Matrix "    + (ON if c["matrix"]    else OF), callback_data="toggle_matrix"),
         ],
         [
-            InlineKeyboardButton("🐢 Mitläufer " + (ON if c["follower"]  else OF), callback_data="toggle_follower"),
-            InlineKeyboardButton("🎭 Chamäleon " + (ON if c["chameleon"] else OF), callback_data="toggle_chameleon"),
+            InlineKeyboardButton("🐢 Follower " + (ON if c["follower"]  else OF), callback_data="toggle_follower"),
+            InlineKeyboardButton("🎭 Chameleon " + (ON if c["chameleon"] else OF), callback_data="toggle_chameleon"),
         ],
         [
             InlineKeyboardButton("🗺 Geo "       + (ON if c["geo_spoof"]   else OF), callback_data="toggle_geo"),
@@ -255,7 +255,7 @@ def build_dashboard(ud):
 
         [InlineKeyboardButton("📋  PRESETS", callback_data="noop")],
         [
-            InlineKeyboardButton("⚡ Schnell",   callback_data="preset_schnell"),
+            InlineKeyboardButton("⚡ Fast",      callback_data="preset_fast"),
             InlineKeyboardButton("🕵️ Stealth",  callback_data="preset_stealth"),
         ],
         [
@@ -265,8 +265,8 @@ def build_dashboard(ud):
 
         [InlineKeyboardButton("─────────────────────", callback_data="noop")],
         [
-            InlineKeyboardButton("🚀  STARTEN", callback_data="launch"),
-            InlineKeyboardButton("❌  Abbruch", callback_data="cancel"),
+            InlineKeyboardButton("🚀  LAUNCH", callback_data="launch"),
+            InlineKeyboardButton("❌  Cancel", callback_data="cancel"),
         ],
     ]
     return text, InlineKeyboardMarkup(kb)
@@ -302,9 +302,9 @@ async def start_wizard(update, context):
     await update.message.reply_text(
         "👑 <b>IMPERIAL CORE  v11</b>\n"
         "─────────────────────\n"
-        "🔐 Sicherheitssystem aktiv\n"
+        "🔐 Security system active\n"
         "─────────────────────\n"
-        "🔑 <b>Access-PIN senden:</b>",
+        "🔑 <b>Send Access PIN:</b>",
         parse_mode="HTML",
     )
     return AWAIT_AUTH_PIN
@@ -321,7 +321,7 @@ async def process_auth_pin(update, context):
 
     if pin == AUTH_PIN:
         AUTH_LOCKOUTS[chat_id]["attempts"] = 0
-        await update.message.reply_text("✅ <b>Zugriff gewährt</b>", parse_mode="HTML")
+        await update.message.reply_text("✅ <b>Access granted</b>", parse_mode="HTML")
         return await send_dashboard(update, context)
     else:
         AUTH_LOCKOUTS[chat_id]["attempts"] += 1
@@ -332,8 +332,8 @@ async def process_auth_pin(update, context):
             return ConversationHandler.END
         left = MAX_PIN_ATTEMPTS - attempts
         await update.message.reply_text(
-            "❌ Falsche PIN  (" + str(attempts) + "/" + str(MAX_PIN_ATTEMPTS) + ")\n"
-            "Noch <b>" + str(left) + "</b> Versuch(e). Nochmal:",
+            "❌ Incorrect PIN  (" + str(attempts) + "/" + str(MAX_PIN_ATTEMPTS) + ")\n"
+            "<b>" + str(left) + "</b> attempt(s) left. Try again:",
             parse_mode="HTML",
         )
         return AWAIT_AUTH_PIN
@@ -369,18 +369,18 @@ async def dashboard_callback(update, context):
 
     if data == "clear_uuid":
         ud["uuid"] = None
-        await query.answer("UUID gelöscht ✓")
+        await query.answer("UUID cleared ✓")
         await refresh_dashboard(query, context)
         return CONFIG_DASHBOARD
 
     if data == "clear_custom_names":
         ud["custom_names"] = []
-        await query.answer("Namen gelöscht ✓")
+        await query.answer("Names cleared ✓")
         await refresh_dashboard(query, context)
         return CONFIG_DASHBOARD
 
     PRESET_MAP = {
-        "preset_schnell": {
+        "preset_fast": {
             "random_names": True, "antikick": True, "matrix": True, "follower": False,
             "delay_min": 1.0, "delay_max": 2.8, "batch_size": 5,
             "podium_enabled": False, "chameleon": False, "geo_spoof": True,
@@ -401,8 +401,8 @@ async def dashboard_callback(update, context):
     }
     if data in PRESET_MAP:
         ud.update(PRESET_MAP[data])
-        labels = {"preset_schnell": "⚡ Schnell", "preset_stealth": "🕵️ Stealth", "preset_podium": "👑 Podium"}
-        await query.answer(labels[data] + " geladen!")
+        labels = {"preset_fast": "⚡ Fast", "preset_stealth": "🕵️ Stealth", "preset_podium": "👑 Podium"}
+        await query.answer(labels[data] + " loaded!")
         await refresh_dashboard(query, context)
         return CONFIG_DASHBOARD
 
@@ -415,7 +415,7 @@ async def dashboard_callback(update, context):
 
     if data == "cancel":
         await query.edit_message_text(
-            "❌ <b>Abgebrochen.</b>\n/start für neues Setup.",
+            "❌ <b>Cancelled.</b>\n/start for new setup.",
             parse_mode="HTML"
         )
         return ConversationHandler.END
@@ -423,70 +423,70 @@ async def dashboard_callback(update, context):
     if data == "launch":
         c = get_cfg(ud)
         if not c["pin"]:
-            await query.answer("⚠️ Erst PIN setzen!", show_alert=True)
+            await query.answer("⚠️ Set PIN first!", show_alert=True)
             return CONFIG_DASHBOARD
         return await do_launch(query, context, c)
 
-    # Eingabe-Dialoge
+    # Input Dialogs
     c = get_cfg(ud)
     PROMPTS = {
         "edit_pin": (EDIT_PIN,
-            "🎯 <b>Spiel-PIN</b>\n"
+            "🎯 <b>Game PIN</b>\n"
             "─────────────────────\n"
-            "Aktuell: <code>" + (escape_html(c["pin"]) if c["pin"] else "—") + "</code>\n\n"
-            "Neue PIN (4–10 Ziffern):"),
+            "Current: <code>" + (escape_html(c["pin"]) if c["pin"] else "—") + "</code>\n\n"
+            "New PIN (4–10 digits):"),
         "edit_amount": (EDIT_AMOUNT,
-            "🤖 <b>Anzahl Bots</b>\n"
+            "🤖 <b>Bot Amount</b>\n"
             "─────────────────────\n"
-            "Aktuell: <code>" + str(c["amount"]) + "</code>\n\n"
-            "Neue Zahl (1–200):"),
+            "Current: <code>" + str(c["amount"]) + "</code>\n\n"
+            "New amount (1–200):"),
         "edit_uuid": (EDIT_UUID,
-            "🔍 <b>Quiz-UUID</b>\n"
+            "🔍 <b>Quiz UUID</b>\n"
             "─────────────────────\n"
-            "Aktuell: <code>" + (escape_html(c["uuid"]) if c["uuid"] else "Auto") + "</code>\n\n"
-            "UUID eingeben\noder <code>nein</code> für Auto:"),
+            "Current: <code>" + (escape_html(c["uuid"]) if c["uuid"] else "Auto") + "</code>\n\n"
+            "Enter UUID\nor <code>no</code> for Auto:"),
         "edit_prefix": (EDIT_PREFIX,
-            "🏷 <b>Bot-Prefix</b>\n"
+            "🏷 <b>Bot Prefix</b>\n"
             "─────────────────────\n"
-            "Aktuell: <code>" + escape_html(c["prefix"]) + "</code>\n"
-            "Beispiel: <code>" + escape_html(c["prefix"]) + "_1</code>, <code>" + escape_html(c["prefix"]) + "_2</code>\n\n"
-            "Neuen Prefix (max 10 Zeichen):"),
+            "Current: <code>" + escape_html(c["prefix"]) + "</code>\n"
+            "Example: <code>" + escape_html(c["prefix"]) + "_1</code>, <code>" + escape_html(c["prefix"]) + "_2</code>\n\n"
+            "New prefix (max 10 chars):"),
         "edit_custom_names": (EDIT_CUSTOM_NAMES,
-            "👥 <b>Eigene Namen</b>\n"
+            "👥 <b>Custom Names</b>\n"
             "─────────────────────\n"
-            "Aktuell: <code>" + (escape_html(" ".join(c["custom_names"][:4])) if c["custom_names"] else "—") + "</code>\n\n"
-            "Mit Leerzeichen:\n<code>Henri Clemens Santi</code>\n"
-            "Mit Komma:\n<code>Henri,Clemens,Santi</code>\n\n"
-            "<code>nein</code> = unverändert"),
+            "Current: <code>" + (escape_html(" ".join(c["custom_names"][:4])) if c["custom_names"] else "—") + "</code>\n\n"
+            "With space:\n<code>Henri Clemens Santi</code>\n"
+            "With comma:\n<code>Henri,Clemens,Santi</code>\n\n"
+            "<code>no</code> = keep current"),
         "edit_delay": (EDIT_DELAY_MIN,
             "⏱ <b>Delay</b>\n"
             "─────────────────────\n"
-            "Aktuell: <code>" + str(c["delay_min"]) + "s – " + str(c["delay_max"]) + "s</code>\n\n"
-            "<b>Min-Delay</b> eingeben (z.B. <code>1.0</code>):"),
+            "Current: <code>" + str(c["delay_min"]) + "s – " + str(c["delay_max"]) + "s</code>\n\n"
+            "Enter <b>Min-Delay</b> (e.g. <code>1.0</code>):"),
         "edit_batch": (EDIT_BATCH,
-            "📦 <b>Batch-Größe</b>\n"
+            "📦 <b>Batch Size</b>\n"
             "─────────────────────\n"
-            "Aktuell: <code>" + str(c["batch_size"]) + "</code>\n"
-            "Bots die gleichzeitig starten.\n\n"
-            "Neue Größe (1–20):"),
+            "Current: <code>" + str(c["batch_size"]) + "</code>\n"
+            "Bots starting simultaneously.\n\n"
+            "New size (1–20):"),
         "edit_podium": (EDIT_PODIUM,
-            "👑 <b>Podium-Slots</b>\n"
+            "👑 <b>Podium Slots</b>\n"
             "─────────────────────\n"
-            "Aktuell: <code>Top-" + str(c["podium_slots"]) + "</code>\n\n"
-            "Wie viele Bots aufs Podium? (1–10):"),
+            "Current: <code>Top-" + str(c["podium_slots"]) + "</code>\n\n"
+            "How many bots on podium? (1–10):"),
         "edit_carpet": (EDIT_CARPET,
-            "🧹 <b>Namens-Teppich</b>\n"
+            "🧹 <b>Name Carpet</b>\n"
             "─────────────────────\n"
-            "Aktuell: <code>" + (escape_html(c["carpet_text"][:25]) if c["carpet_text"] else "—") + "</code>\n\n"
-            "Wörter mit Leerzeichen:\n"
-            "<code>CLEMENS REGIERT HIER</code>\n"
-            "Bot1=CLEMENS Bot2=REGIERT …\n\n"
-            "<code>nein</code> = unverändert"),
+            "Current: <code>" + (escape_html(c["carpet_text"][:25]) if c["carpet_text"] else "—") + "</code>\n\n"
+            "Words with space:\n"
+            "<code>CLEMENS RULES HERE</code>\n"
+            "Bot1=CLEMENS Bot2=RULES …\n\n"
+            "<code>no</code> = keep current"),
     }
     if data in PROMPTS:
         next_state, prompt = PROMPTS[data]
         await query.edit_message_text(
-            prompt + "\n\n<i>/abbruch = zurück</i>",
+            prompt + "\n\n<i>/cancel = back</i>",
             parse_mode="HTML",
         )
         return next_state
@@ -494,7 +494,7 @@ async def dashboard_callback(update, context):
     return CONFIG_DASHBOARD
 
 # ═══════════════════════════════════════════════════════════════════
-# EINGABE-HANDLER
+# INPUT HANDLERS
 # ═══════════════════════════════════════════════════════════════════
 async def _back(update, context):
     text, markup = build_dashboard(context.user_data)
@@ -504,7 +504,7 @@ async def _back(update, context):
 async def recv_pin(update, context):
     val = update.message.text.strip()
     if not re.fullmatch(r"\d{4,10}", val):
-        await update.message.reply_text("❌ Nur Ziffern, 4–10 Stellen:")
+        await update.message.reply_text("❌ Digits only, 4–10 characters:")
         return EDIT_PIN
     context.user_data["pin"] = val
     await update.message.reply_text(
@@ -517,7 +517,7 @@ async def recv_amount(update, context):
         if not (1 <= val <= 200): raise ValueError
         context.user_data["amount"] = val
     except ValueError:
-        await update.message.reply_text("❌ Zahl 1–200:")
+        await update.message.reply_text("❌ Number between 1–200:")
         return EDIT_AMOUNT
     await update.message.reply_text(
         "✅ Bots: <code>" + str(val) + "</code>", parse_mode="HTML")
@@ -525,9 +525,9 @@ async def recv_amount(update, context):
 
 async def recv_uuid(update, context):
     val = update.message.text.strip()
-    if val.lower() == "nein":
+    if val.lower() == "no":
         context.user_data["uuid"] = None
-        await update.message.reply_text("✅ UUID: <i>Auto-Modus</i>", parse_mode="HTML")
+        await update.message.reply_text("✅ UUID: <i>Auto Mode</i>", parse_mode="HTML")
     else:
         context.user_data["uuid"] = val
         await update.message.reply_text(
@@ -546,17 +546,17 @@ async def recv_prefix(update, context):
 
 async def recv_custom_names(update, context):
     val = update.message.text.strip()
-    if val.lower() != "nein":
+    if val.lower() != "no":
         names = parse_custom_names(val)
         if names:
             context.user_data["custom_names"]  = names
             context.user_data["random_names"]  = False
             preview = " / ".join(names[:5]) + ("…" if len(names) > 5 else "")
             await update.message.reply_text(
-                "✅ " + str(len(names)) + " Namen:\n<code>" + escape_html(preview) + "</code>",
+                "✅ " + str(len(names)) + " Names:\n<code>" + escape_html(preview) + "</code>",
                 parse_mode="HTML")
         else:
-            await update.message.reply_text("❌ Keine gültigen Namen erkannt.")
+            await update.message.reply_text("❌ No valid names detected.")
     return await _back(update, context)
 
 async def recv_delay_min(update, context):
@@ -565,12 +565,12 @@ async def recv_delay_min(update, context):
         if not (0.1 <= val <= 30.0): raise ValueError
         context.user_data["delay_min"] = round(val, 1)
     except ValueError:
-        await update.message.reply_text("❌ Zahl 0.1–30.0:")
+        await update.message.reply_text("❌ Number 0.1–30.0:")
         return EDIT_DELAY_MIN
     dmin = context.user_data["delay_min"]
     await update.message.reply_text(
         "✅ Min: <code>" + str(dmin) + "s</code>\n"
-        "Jetzt <b>Max-Delay</b> (≥ " + str(dmin) + ") eingeben:",
+        "Now enter <b>Max-Delay</b> (≥ " + str(dmin) + "):",
         parse_mode="HTML")
     return EDIT_DELAY_MAX
 
@@ -581,7 +581,7 @@ async def recv_delay_max(update, context):
         if val < dmin: raise ValueError
         context.user_data["delay_max"] = round(val, 1)
     except ValueError:
-        await update.message.reply_text("❌ Muss ≥ " + str(dmin) + "s sein:")
+        await update.message.reply_text("❌ Must be ≥ " + str(dmin) + "s:")
         return EDIT_DELAY_MAX
     await update.message.reply_text(
         "✅ Delay: <code>" + str(dmin) + "s – " + str(context.user_data["delay_max"]) + "s</code>",
@@ -594,7 +594,7 @@ async def recv_batch(update, context):
         if not (1 <= val <= 20): raise ValueError
         context.user_data["batch_size"] = val
     except ValueError:
-        await update.message.reply_text("❌ Zahl 1–20:")
+        await update.message.reply_text("❌ Number 1–20:")
         return EDIT_BATCH
     await update.message.reply_text(
         "✅ Batch: <code>" + str(val) + "</code>", parse_mode="HTML")
@@ -607,16 +607,16 @@ async def recv_podium(update, context):
         context.user_data["podium_slots"]   = val
         context.user_data["podium_enabled"] = True
     except ValueError:
-        await update.message.reply_text("❌ Zahl 1–10:")
+        await update.message.reply_text("❌ Number 1–10:")
         return EDIT_PODIUM
     await update.message.reply_text(
-        "✅ Podium: <code>Top-" + str(val) + "</code>  (aktiviert)",
+        "✅ Podium: <code>Top-" + str(val) + "</code>  (enabled)",
         parse_mode="HTML")
     return await _back(update, context)
 
 async def recv_carpet(update, context):
     val = update.message.text.strip()
-    if val.lower() != "nein" and val:
+    if val.lower() != "no" and val:
         context.user_data["carpet_text"]    = val
         context.user_data["carpet_enabled"] = True
         context.user_data["random_names"]   = False
@@ -625,11 +625,11 @@ async def recv_carpet(update, context):
         if len(words) > 4:
             preview += " …"
         await update.message.reply_text(
-            "✅ Teppich:\n<code>" + escape_html(preview) + "</code>",
+            "✅ Carpet:\n<code>" + escape_html(preview) + "</code>",
             parse_mode="HTML")
     return await _back(update, context)
 
-async def recv_abbruch(update, context):
+async def recv_cancel(update, context):
     return await _back(update, context)
 
 # ═══════════════════════════════════════════════════════════════════
@@ -663,9 +663,9 @@ async def do_launch(query, context, c):
     ACTIVE_ENGINE_TASKS[chat_id] = engine
     asyncio.create_task(engine.start_flooding())
 
-    yn  = lambda v: "AN" if v else "AUS"
+    yn  = lambda v: "ON" if v else "OFF"
     txt = (
-        "🚀 <b>GESTARTET!</b>\n"
+        "🚀 <b>LAUNCHED!</b>\n"
         "─────────────────────\n"
         "🎯 PIN      <code>" + escape_html(c["pin"])  + "</code>\n"
         "🤖 Bots     <code>" + str(c["amount"])       + "</code>\n"
@@ -675,10 +675,10 @@ async def do_launch(query, context, c):
         "🛡 Anti-Kick  <code>" + yn(c["antikick"])  + "</code>\n"
         "⚡ Matrix     <code>" + yn(c["matrix"])    + "</code>\n"
         "👑 Podium     <code>" + (yn(True) + " Top-" + str(c["podium_slots"]) if c["podium_enabled"] else yn(False)) + "</code>\n"
-        "🎭 Chamäleon  <code>" + yn(c["chameleon"]) + "</code>\n"
+        "🎭 Chameleon  <code>" + yn(c["chameleon"]) + "</code>\n"
         "─────────────────────\n"
-        "📡 Live-Updates folgen.\n"
-        "🛑 /stopp zum Beenden"
+        "📡 Live updates to follow.\n"
+        "🛑 /stop to terminate"
     )
     try:
         await query.edit_message_text(txt, parse_mode="HTML")
@@ -727,7 +727,7 @@ class TelegramKahootEngine:
 
     async def log_mission_start(self):
         c  = self.config
-        yn = lambda v: "AN" if v else "AUS"
+        yn = lambda v: "ON" if v else "OFF"
         await self.send(
             "👑 <b>MISSION START</b>\n"
             "─────────────────────\n"
@@ -739,16 +739,16 @@ class TelegramKahootEngine:
             "⚡ Matrix    <code>" + yn(c["matrix_enabled"])    + "</code>\n"
             "🛡 Anti-Kick <code>" + yn(c["antikick_enabled"])  + "</code>\n"
             "👑 Podium    <code>" + (yn(True) + " Top-" + str(c["podium_slots"]) if c["podium_enabled"] else yn(False)) + "</code>\n"
-            "🎭 Chamäleon <code>" + yn(c["chameleon"])         + "</code>\n"
+            "🎭 Chameleon <code>" + yn(c["chameleon"])         + "</code>\n"
             "🗺 Geo       <code>" + yn(c["geo_spoof"])         + "</code>\n"
             "─────────────────────\n"
-            "🚀 Bots werden gestartet…"
+            "🚀 Booting up instances…"
         )
 
     async def log_joined(self, bot_id, name):
         self.stats["active_bots"] += 1
         await self.send(
-            "✅ Bot <b>#" + str(bot_id) + "</b> beigetreten\n"
+            "✅ Bot <b>#" + str(bot_id) + "</b> joined\n"
             "👤 <code>" + escape_html(name) + "</code>"
         )
 
@@ -757,27 +757,27 @@ class TelegramKahootEngine:
         self.stats["kicked_round"] += 1
         await self.send(
             "🚨 <b>Anti-Kick!</b>\n"
-            "Alt:  <code>" + escape_html(old) + "</code>\n"
-            "Neu:  <code>" + escape_html(new) + "</code>"
+            "Old:  <code>" + escape_html(old) + "</code>\n"
+            "New:  <code>" + escape_html(new) + "</code>"
         )
 
     async def log_mission_end(self):
         await self.send(
-            "🛑 <b>Mission beendet</b>\n"
+            "🛑 <b>Mission Terminated</b>\n"
             "─────────────────────\n"
-            "Alle Instanzen geschlossen.\n"
-            "👉 /start für neues Setup"
+            "All instances closed.\n"
+            "👉 /start for new setup"
         )
 
     async def log_quiz_loaded(self, title, count, source):
         await self.send(
-            "🔓 <b>Quiz geladen</b>\n"
+            "🔓 <b>Quiz Loaded</b>\n"
             "─────────────────────\n"
-            "📋 Titel:  <code>" + escape_html(title) + "</code>\n"
-            "❓ Fragen: <code>" + str(count)          + "</code>\n"
-            "📡 Quelle: <i>"   + escape_html(source)  + "</i>\n"
+            "📋 Title:  <code>" + escape_html(title) + "</code>\n"
+            "❓ Questions: <code>" + str(count)          + "</code>\n"
+            "📡 Source: <i>"   + escape_html(source)  + "</i>\n"
             "─────────────────────\n"
-            "✅ Antworten bereit."
+            "✅ Answers ready."
         )
 
     async def log_round(self, current, total, item):
@@ -788,13 +788,13 @@ class TelegramKahootEngine:
         q_type = item.get("type", "quiz") if item else "quiz"
         TYPE_LABEL = {
             "quiz":       "Multi-Choice",
-            "true_false": "Wahr/Falsch",
-            "open_ended": "Freitext",
-            "word_cloud": "Freitext",
+            "true_false": "True/False",
+            "open_ended": "Free Text",
+            "word_cloud": "Free Text",
         }
         type_label = TYPE_LABEL.get(q_type, "Multi-Choice")
 
-        msg  = "📊 <b>Runde " + str(current) + " / " + str(total) + "</b>\n"
+        msg  = "📊 <b>Round " + str(current) + " / " + str(total) + "</b>\n"
         msg += "<code>" + bar + " " + str(pct) + "%</code>  <i>" + type_label + "</i>\n"
         msg += "─────────────────────\n"
 
@@ -808,28 +808,28 @@ class TelegramKahootEngine:
 
             if q_type in ("open_ended", "word_cloud"):
                 texts = item.get("correct_texts", [])
-                msg += "✅ <b>Antwort</b>  (Freitext)\n"
+                msg += "✅ <b>Answer</b>  (Free Text)\n"
                 for a in texts[:3]:
                     msg += "  · <code>" + escape_html(a) + "</code>\n"
             elif q_type == "true_false":
                 idx   = item.get("correct_index", 0)
                 ans   = item.get("correct_text", "")
                 dot   = "🔵" if idx == 0 else "🔴"
-                badge = "True · Blau" if idx == 0 else "False · Rot"
-                msg += "✅ <b>Antwort</b>\n"
+                badge = "True · Blue" if idx == 0 else "False · Red"
+                msg += "✅ <b>Answer</b>\n"
                 msg += dot + "  <code>" + escape_html(ans) + "</code>\n"
                 msg += "<i>" + badge + "</i>\n"
             else:
                 idx    = item.get("correct_index", -1)
                 ans    = item.get("correct_text", "")
                 DOTS   = {0: "🔴", 1: "🔵", 2: "🟡", 3: "🟢"}
-                BADGES = {0: "Rot · Dreieck", 1: "Blau · Diamant",
-                          2: "Gelb · Kreis",  3: "Grün · Quadrat"}
-                msg += "✅ <b>Antwort</b>\n"
+                BADGES = {0: "Red · Triangle", 1: "Blue · Diamond",
+                          2: "Yellow · Circle",  3: "Green · Square"}
+                msg += "✅ <b>Answer</b>\n"
                 msg += DOTS.get(idx, "⬜") + "  <code>" + escape_html(ans) + "</code>\n"
                 msg += "<i>" + BADGES.get(idx, "?") + "</i>\n"
         else:
-            msg += "⚠️ <i>Keine UUID — unbekannt</i>\n"
+            msg += "⚠️ <i>No UUID — unknown</i>\n"
 
         if self.config.get("live_ticker", True):
             chat_str   = str(self.chat_id)
@@ -839,26 +839,26 @@ class TelegramKahootEngine:
             msg += (
                 "─────────────────────\n"
                 "🤖 Bots:         <code>" + str(active)     + "</code>\n"
-                "🚨 Kicks Runde:  <code>" + str(kicked_r)   + "</code>\n"
-                "🚨 Kicks Gesamt: <code>" + str(kicked_tot) + "</code>"
+                "🚨 Kicks Round:  <code>" + str(kicked_r)   + "</code>\n"
+                "🚨 Kicks Total:  <code>" + str(kicked_tot) + "</code>"
             )
             self.stats["kicked_round"] = 0
 
         await self.send(msg.rstrip())
 
-    async def fetch_answers(self, uuid, source="Manuelle Eingabe"):
+    async def fetch_answers(self, uuid, source="Manual Entry"):
         self.answers.clear()
         re_tag = re.compile(r"<[^>]+>")
         try:
             session = await get_session()
             async with session.get("https://create.kahoot.it/rest/kahoots/" + uuid) as res:
                 if res.status != 200:
-                    await self.send("❌ API " + str(res.status) + " — UUID ungültig.")
+                    await self.send("❌ API " + str(res.status) + " — UUID invalid.")
                     return False
 
                 data      = await res.json()
                 questions = data.get("questions", [])
-                title     = data.get("title", "Unbekannt")
+                title     = data.get("title", "Unknown")
 
                 for idx, q in enumerate(questions):
                     q_text  = re_tag.sub("", q.get("question", "")).strip()
@@ -886,7 +886,7 @@ class TelegramKahootEngine:
                 await self.log_quiz_loaded(title, len(questions), source)
 
                 SHAPES = {0: "🔴", 1: "🔵", 2: "🟡", 3: "🟢"}
-                chunk, chunk_len = ["📖 <b>Antwort-Übersicht</b>"], 30
+                chunk, chunk_len = ["📖 <b>Answer Overview</b>"], 30
 
                 for f_idx, it in self.answers.items():
                     raw_q  = it["text"][:75] + ("…" if len(it["text"]) > 75 else "")
@@ -913,7 +913,7 @@ class TelegramKahootEngine:
                 return True
 
         except Exception as e:
-            await self.send("❌ Fehler: <code>" + escape_html(str(e)) + "</code>")
+            await self.send("❌ Error: <code>" + escape_html(str(e)) + "</code>")
         return False
 
     async def extract_uuid_from_dom(self, page):
@@ -924,7 +924,7 @@ class TelegramKahootEngine:
                 "() => window.Kahoot?.quizId ?? window.gameState?.quizId ?? null"
             )
             if uuid and len(uuid) > 10:
-                await self.fetch_answers(uuid, source="Auto-Spionage")
+                await self.fetch_answers(uuid, source="Auto-Espionage")
         except Exception:
             pass
 
@@ -950,23 +950,14 @@ class TelegramKahootEngine:
         except Exception:
             return []
 
-    # ── v11: Schnelle Kick-Erkennung via URL + DOM (kein teures wait_for) ──
+    # ── v11: Fast Kick Detection via DOM ──
     async def _is_kicked(self, page) -> bool:
-        """
-        Erkennt einen echten Kick zuverlaessig.
-        Prueft NUR auf Kick-spezifische Texte im DOM.
-        URL und PIN-Feld-Sichtbarkeit werden NICHT geprueft,
-        da beides auch waehrend des normalen Join-Vorgangs auftritt
-        und zu False-Positives fuehrt.
-        """
         try:
             return bool(await page.evaluate("""
                 () => {
                     const body = document.body ? document.body.innerText.toLowerCase() : '';
-                    // Nur explizite Kick-Nachrichten erkennen
                     const kickWords = [
-                        'kicked', 'removed', 'rausgeworfen', 'entfernt',
-                        'banned', 'gesperrt', 'du wurdest', 'you were removed',
+                        'kicked', 'removed', 'banned', 'you were removed',
                         'you have been kicked', 'you have been removed'
                     ];
                     return kickWords.some(t => body.includes(t));
@@ -1087,6 +1078,7 @@ class TelegramKahootEngine:
                             "button[type='submit']",
                             "button[data-functional-selector='submit-button']",
                             "button:has-text('Senden')",
+                            "button:has-text('Submit')",
                         ]:
                             try:
                                 btn = page.locator(sel)
@@ -1103,7 +1095,7 @@ class TelegramKahootEngine:
             except Exception:
                 await asyncio.sleep(1)
 
-    # ── Bot starten v11 — Anti-Kick-Intervall 0.5s statt 2s ─────
+    # ── Launch Bot v11 ──
     async def launch_bot(self, browser, bot_id, start_name, is_elite=False):
         base_name    = start_name
         current_name = start_name
@@ -1189,6 +1181,8 @@ class TelegramKahootEngine:
                 try:
                     join_btn = page.locator("button[type='submit']").or_(
                         page.get_by_role("button", name="Los geht's!")
+                    ).or_(
+                        page.get_by_role("button", name="Enter")
                     )
                     await join_btn.click(timeout=2000)
                 except Exception:
@@ -1201,11 +1195,7 @@ class TelegramKahootEngine:
                 )
 
                 # ── Anti-Kick Loop ────────────────────────────────
-                # Wartet zuerst bis der Bot sicher in der Lobby ist,
-                # dann erst beginnt die Kick-Erkennung.
-                # Erkennungs-Methode: NUR Kick-Text im DOM (kein URL-Check,
-                # kein PIN-Feld, da beides False-Positives erzeugt).
-                await asyncio.sleep(4.0)  # Sicherheitspuffer: Join-Animation abwarten
+                await asyncio.sleep(4.0)
 
                 while not self.stop_event.is_set():
                     await asyncio.sleep(1.5)
@@ -1238,7 +1228,7 @@ class TelegramKahootEngine:
         await self.log_mission_start()
 
         if self.quiz_id:
-            await self.fetch_answers(self.quiz_id, source="Vorab-Abfrage")
+            await self.fetch_answers(self.quiz_id, source="Pre-fetch")
 
         amount = self.config["amount"]
         c      = self.config
@@ -1283,7 +1273,7 @@ class TelegramKahootEngine:
         await self.log_mission_end()
 
 # ═══════════════════════════════════════════════════════════════════
-# NOT-AUS
+# EMERGENCY STOP
 # ═══════════════════════════════════════════════════════════════════
 async def execute_nuke(update, context, silent=False):
     chat_id  = update.effective_chat.id
@@ -1303,12 +1293,12 @@ async def execute_nuke(update, context, silent=False):
 
     if not silent:
         await update.message.reply_text(
-            "🛑 <b>Not-Aus</b>\n"
+            "🛑 <b>Emergency Stop</b>\n"
             "─────────────────────\n"
-            "✅ Bots gestoppt.\n"
-            "🔄 Config zurückgesetzt.\n"
+            "✅ Bots stopped.\n"
+            "🔄 Config reset.\n"
             "─────────────────────\n"
-            "👉 /start für neues Setup",
+            "👉 /start for new setup",
             parse_mode="HTML",
         )
     return ConversationHandler.END
@@ -1337,18 +1327,18 @@ async def cmd_status(update, context):
 
     active_bots = len(ACTIVE_CONTEXTS.get(chat_str, []))
     engine      = ACTIVE_ENGINE_TASKS.get(chat_id)
-    mission     = "🟢 Läuft" if engine and not engine.stop_event.is_set() else "🔴 Inaktiv"
+    mission     = "🟢 Active" if engine and not engine.stop_event.is_set() else "🔴 Inactive"
     kicks_total = ROUND_STATS.get(chat_id, {}).get("kicked_total", 0)
 
     await update.message.reply_text(
-        "🖥 <b>System-Monitor</b>\n"
+        "🖥 <b>System Monitor</b>\n"
         "─────────────────────\n"
         "🔥 CPU:     <code>" + str(cpu) + "%</code>\n"
         "🌡 Temp:    <code>" + temp_str + "</code>\n"
         "💾 RAM:     <code>" + str(round(ram.percent, 1)) + "%</code>"
         "  (<code>" + str(round(ram.used / 1024**3, 1)) + "/" + str(round(ram.total / 1024**3, 1)) + " GB</code>)\n"
         "💿 Disk:    <code>" + str(round(disk.percent, 1)) + "%</code>"
-        "  (<code>" + str(round(disk.free / 1024**3, 1)) + " GB frei</code>)\n"
+        "  (<code>" + str(round(disk.free / 1024**3, 1)) + " GB free</code>)\n"
         "─────────────────────\n"
         "🤖 Bots:    <code>" + str(active_bots) + "</code>\n"
         "📡 Status:  " + mission + "\n"
@@ -1360,9 +1350,9 @@ async def cmd_status(update, context):
     )
 
 # ═══════════════════════════════════════════════════════════════════
-# /antworten
+# /answers
 # ═══════════════════════════════════════════════════════════════════
-async def cmd_antworten(update, context):
+async def cmd_answers(update, context):
     chat_id   = update.effective_chat.id
     remaining = check_lockout(chat_id)
     if remaining > 0:
@@ -1371,19 +1361,19 @@ async def cmd_antworten(update, context):
 
     if not context.args:
         await update.message.reply_text(
-            "❌ <b>Keine UUID angegeben</b>\n"
-            "Beispiel:\n"
-            "<code>/antworten 1234abcd-1234-abcd-1234-123456abcdef</code>",
+            "❌ <b>No UUID provided</b>\n"
+            "Example:\n"
+            "<code>/answers 1234abcd-1234-abcd-1234-123456abcdef</code>",
             parse_mode="HTML",
         )
         return
 
     uuid   = context.args[0].strip()
     re_tag = re.compile(r"<[^>]+>")
-    SHAPES = {0: "🔴 Rot", 1: "🔵 Blau", 2: "🟡 Gelb", 3: "🟢 Grün"}
+    SHAPES = {0: "🔴 Red", 1: "🔵 Blue", 2: "🟡 Yellow", 3: "🟢 Green"}
 
     await update.message.reply_text(
-        "📡 Lade Quiz…\n<code>" + escape_html(uuid) + "</code>",
+        "📡 Loading Quiz…\n<code>" + escape_html(uuid) + "</code>",
         parse_mode="HTML",
     )
 
@@ -1396,13 +1386,13 @@ async def cmd_antworten(update, context):
 
             data      = await res.json()
             questions = data.get("questions", [])
-            title     = escape_html(data.get("title", "Unbekannt"))
+            title     = escape_html(data.get("title", "Unknown"))
 
             lines = [
-                "👑 <b>Quiz extrahiert</b>",
+                "👑 <b>Quiz Extracted</b>",
                 "─────────────────────",
-                "📋 <b>Titel:</b> <code>" + title + "</code>",
-                "❓ <b>Fragen:</b> " + str(len(questions)),
+                "📋 <b>Title:</b> <code>" + title + "</code>",
+                "❓ <b>Questions:</b> " + str(len(questions)),
                 "─────────────────────",
             ]
 
@@ -1421,7 +1411,7 @@ async def cmd_antworten(update, context):
                     elif q_type in ("open_ended", "word_cloud") and ch.get("correct", True):
                         correct.append("<code>" + ans + "</code>")
 
-                lines.append("💡 " + ("  ·  ".join(correct) if correct else "<i>keine</i>"))
+                lines.append("💡 " + ("  ·  ".join(correct) if correct else "<i>none</i>"))
 
             full = "\n".join(lines)
             for i in range(0, len(full), 4000):
@@ -1439,7 +1429,7 @@ async def shutdown_hook(app):
         await _HTTP_SESSION.close()
 
 def main():
-    print("Starte Imperial Cloud Core v11.0…")
+    print("Starting Imperial Cloud Core v11.0…")
     app = Application.builder().token(TELEGRAM_TOKEN).post_shutdown(shutdown_hook).build()
 
     wizard = ConversationHandler(
@@ -1448,29 +1438,29 @@ def main():
             AWAIT_AUTH_PIN:    [MessageHandler(filters.TEXT & ~filters.COMMAND, process_auth_pin)],
             CONFIG_DASHBOARD:  [CallbackQueryHandler(dashboard_callback)],
             EDIT_PIN:          [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_pin),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
             EDIT_AMOUNT:       [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_amount),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
             EDIT_UUID:         [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_uuid),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
             EDIT_PREFIX:       [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_prefix),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
             EDIT_CUSTOM_NAMES: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_custom_names),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
             EDIT_DELAY_MIN:    [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_delay_min),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
             EDIT_DELAY_MAX:    [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_delay_max),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
             EDIT_BATCH:        [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_batch),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
             EDIT_PODIUM:       [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_podium),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
             EDIT_CARPET:       [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_carpet),
-                                CommandHandler("abbruch", recv_abbruch)],
+                                CommandHandler("cancel", recv_cancel)],
         },
         fallbacks=[
-            CommandHandler("stopp",   execute_nuke),
-            CommandHandler("abbruch", recv_abbruch),
+            CommandHandler("stop",   execute_nuke),
+            CommandHandler("cancel", recv_cancel),
         ],
         allow_reentry=True,
         per_chat=True,
@@ -1478,11 +1468,11 @@ def main():
     )
 
     app.add_handler(wizard)
-    app.add_handler(CommandHandler("stopp",     execute_nuke))
-    app.add_handler(CommandHandler("antworten", cmd_antworten))
+    app.add_handler(CommandHandler("stop",      execute_nuke))
+    app.add_handler(CommandHandler("answers",   cmd_answers))
     app.add_handler(CommandHandler("status",    cmd_status))
 
-    print("Bot läuft — v11.0 — alle Features aktiv.")
+    print("Bot running — v11.0 — all features active.")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
